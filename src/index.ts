@@ -7,6 +7,7 @@ import inquirer from 'inquirer';
 import net from 'net';
 import fs from 'fs/promises';
 import path from 'path';
+import { execSync } from 'child_process';
 import { loadConfig } from './config';
 import { AppState, Place } from './state';
 import { createPollHandler, createLogsHandler, createResultsHandler } from './api';
@@ -125,6 +126,37 @@ async function main() {
   }
 
   try {
+    // 首先运行 generate-project-info.js 脚本
+    console.error(chalk.dim('生成项目信息文件...'));
+    let projectInfo: any = null;
+    try {
+      const scriptPath = path.join(__dirname, '..', 'scripts', 'generate-project-info.js');
+      // 如果指定了 -r 参数，传递给脚本
+      const scriptArgs = options.rojoConfig && options.rojoConfig !== 'default.project.json'
+        ? `-r "${options.rojoConfig}"`
+        : '';
+      execSync(`node "${scriptPath}" ${scriptArgs}`, { stdio: 'inherit' });
+
+      // 读取生成的项目信息文件
+      try {
+        const projectInfoPath = path.join(process.cwd(), '.project-info.json');
+        const projectInfoContent = await fs.readFile(projectInfoPath, 'utf-8');
+        projectInfo = JSON.parse(projectInfoContent);
+        console.error(chalk.green('\n[本地项目信息]'));
+        console.error(chalk.green(`  名称: ${projectInfo.name}`));
+        console.error(chalk.green(`  哈希: ${projectInfo.hash}`));
+        console.error(chalk.green(`  时间: ${projectInfo.date || 'unknown'}`));
+      } catch (readError) {
+        console.error(chalk.yellow('警告: 无法读取项目信息文件'));
+      }
+    } catch (error) {
+      console.error(chalk.yellow('警告: 无法生成项目信息文件'));
+      console.error(chalk.yellow('请确保在 git 仓库中并且存在有效的 project.json 文件'));
+      if (!options.rojoConfig || options.rojoConfig === 'default.project.json') {
+        console.error(chalk.yellow('提示: 可以使用 -r <path> 参数指定 Rojo 配置文件路径'));
+      }
+    }
+
     const config = await loadConfig();
 
     // Override test roots if custom paths are provided
@@ -153,6 +185,7 @@ async function main() {
       } catch (error) {
         if ((error as any).code === 'ENOENT') {
           console.error(chalk.red(`Error: Rojo config file not found: ${options.rojoConfig}`));
+          console.error(chalk.yellow('提示: 可以使用 -r <path> 参数指定正确的 Rojo 配置文件路径'));
           process.exit(1);
         } else if (error instanceof SyntaxError) {
           console.error(chalk.red(`Error: Invalid JSON in Rojo config file: ${options.rojoConfig}`));

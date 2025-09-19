@@ -11,6 +11,7 @@ export class AppState {
   activePlace: string | null = null;
   onlyLogFailures: boolean;
   gameName: string | null = null;
+  connectedPlaces: Set<string> = new Set();  // 记录已连接过的 place
 
   constructor(config: Config, onlyLogFailures: boolean = false) {
     this.config = config;

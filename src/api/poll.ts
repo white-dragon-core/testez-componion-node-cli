@@ -8,8 +8,18 @@ export function createPollHandler(state: AppState) {
     const placeName = req.headers['place-name'] as string;
     const placeId = parseInt(req.headers['place-id'] as string, 10);
     const gameName = req.headers['game-name'] as string;
+    const projectHash = req.headers['project-hash'] as string;
+    const projectDate = req.headers['project-date'] as string;
 
-    console.log(`[Poll] Received request from game: ${gameName}, place: ${placeName}, guid: ${placeGuid}`);
+    // 只在首次连接时打印 Studio 端的项目信息
+    if (!state.connectedPlaces.has(placeGuid)) {
+      console.log(`\n[Studio 项目信息]`);
+      console.log(`  名称: ${gameName}`);
+      console.log(`  哈希: ${projectHash || 'unknown'}`);
+      console.log(`  时间: ${projectDate || 'unknown'}`);
+      console.log(`  Place: ${placeName} (${placeId})`);
+      state.connectedPlaces.add(placeGuid);
+    }
 
     if (!placeGuid || !placeName || isNaN(placeId)) {
       console.log('[Poll] Invalid headers - missing required fields');
