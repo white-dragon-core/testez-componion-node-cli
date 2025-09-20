@@ -7,6 +7,7 @@ end
 local HttpService = game:GetService("HttpService")
 local LogService = game:GetService("LogService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TestService = game:GetService("TestService")
 
 local extractUsefulKeys = require(script.Parent.extractUsefulKeys)
 local hotReload = require(script.Parent.hotReload)
@@ -21,34 +22,34 @@ local ACTIVE_PORT = nil
 local BASE_URL = nil
 
 local PlaceGUID = HttpService:GenerateGUID(false)
-local projectInfo = nil
 
--- 尝试读取项目信息文件
+-- 从 TestService 读取项目信息
 local function loadProjectInfo()
-	-- 注意：同步后的文件名包含 .json 后缀
-	local projectInfoFile = ReplicatedStorage:FindFirstChild(".project-info")
-	if not projectInfoFile then
-		-- 也尝试带 .json 后缀的名字
-		projectInfoFile = ReplicatedStorage:FindFirstChild(".project-info.json")
+	local infoNode = TestService:FindFirstChild("testez-companion-info")
+	if not infoNode then
+		return nil
 	end
 
-	if projectInfoFile and projectInfoFile:IsA("ModuleScript") then
-		local success, info = pcall(require, projectInfoFile)
-		if success and type(info) == "table" then
-			log(print, "成功加载项目信息:")
-			log(print, "  名称: " .. tostring(info.name))
-			log(print, "  哈希: " .. tostring(info.hash))
-			log(print, "  时间: " .. tostring(info.date))
-			return info
-		else
-			log(warn, "无法加载 .project-info.json: " .. tostring(info))
-		end
+	-- 读取属性
+	local name = infoNode:GetAttribute("name")
+	local hash = infoNode:GetAttribute("hash")
+	local date = infoNode:GetAttribute("date")
+
+	if name and hash and date then
+		local info = {
+			name = name,
+			hash = hash,
+			date = date
+		}
+		return info
+	else
+		return nil
 	end
-	return nil
 end
 
 -- Function to get current headers (使用 project-info 中的 name)
 local function getIdentifierHeaders()
+	local projectInfo = loadProjectInfo()
 	-- 如果没有项目信息，不发送请求
 	if not projectInfo then
 		return nil
@@ -131,16 +132,12 @@ end
 
 -- Main polling loop
 while true do
-	-- 尝试加载项目信息
+	-- 每次都尝试加载项目信息（不再缓存）
+	local projectInfo = loadProjectInfo()
 	if not projectInfo then
-		projectInfo = loadProjectInfo()
-		if not projectInfo then
-			-- 如果没有找到项目信息文件，等待并继续
-			log(warn, "未找到 ReplicatedStorage/.project-info.json 文件，请先同步该文件")
-			task.wait(2) -- 等待2秒后再试
-			continue
-		end
-		log(print, "已加载项目信息: " .. projectInfo.name)
+		-- 如果没有找到项目信息，等待并继续
+		task.wait(2) -- 等待2秒后再试
+		continue
 	end
 
 	-- If we don't have an active server, try to find one
@@ -153,8 +150,7 @@ while true do
 
 	local headers = getIdentifierHeaders()
 	if not headers then
-		-- 没有有效的 headers，重新检查项目信息
-		projectInfo = nil
+		-- 没有有效的 headers
 		task.wait(POLLING_INTERVAL)
 		continue
 	end

@@ -1,5 +1,5 @@
 const { execSync } = require('child_process');
-const { rmSync, existsSync, readFileSync, writeFileSync } = require('fs');
+const { rmSync, existsSync, readFileSync, writeFileSync, mkdirSync } = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
@@ -10,6 +10,9 @@ const projectFileIndex = args.indexOf('-r');
 const projectFilePath = projectFileIndex !== -1 && args[projectFileIndex + 1]
   ? args[projectFileIndex + 1]
   : 'default.project.json';
+
+// 解析输出路径参数
+const outputPath = args[0] || 'TestService/testez-companion-info.model.json';
 
 // 1. 在操作系统的临时目录下创建一个唯一的临时文件名
 const tempFileName = `git-index-${crypto.randomBytes(6).toString('hex')}`;
@@ -64,11 +67,28 @@ try {
   // 添加生成时间
   projectInfo.date = new Date().toISOString();
 
-  // 4. 输出到 .project-info.json 文件
-  const outputPath = '.project-info.json';
-  writeFileSync(outputPath, JSON.stringify(projectInfo, null, 2));
+  // 4. 构建指定格式的 JSON 结构
+  const outputData = {
+    "ClassName": "Folder",
+    "Properties": {
+      "Attributes": {
+        "name": {"String": projectInfo.name},
+        "hash": {"String": projectInfo.hash},
+        "date": {"String": projectInfo.date}
+      }
+    }
+  };
 
-  // 5. 打印结果
+  // 确保输出目录存在
+  const outputDir = path.dirname(outputPath);
+  if (!existsSync(outputDir)) {
+    mkdirSync(outputDir, { recursive: true });
+  }
+
+  // 5. 输出到指定文件
+  writeFileSync(outputPath, JSON.stringify(outputData, null, 2));
+
+  // 6. 打印结果
   console.log(`项目信息已生成:`);
   console.log(`  名称: ${projectInfo.name}`);
   console.log(`  哈希: ${projectInfo.hash}`);
